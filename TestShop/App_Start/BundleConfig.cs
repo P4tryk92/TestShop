@@ -15,7 +15,7 @@ namespace TestShop
                         "~/Scripts/jquery.validate*"));
 
             bundles.Add(new ScriptBundle("~/bundles/scripts").Include(
-                        "~/Scripts/jquery-{version}}.js",
+                        "~/Scripts/jquery-{version}.js",
                         "~/Scripts/bootstrap.js"));
 
             // Use the development version of Modernizr to develop with and learn from. Then, when you're
