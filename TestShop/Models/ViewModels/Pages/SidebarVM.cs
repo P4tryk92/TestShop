@@ -1,4 +1,5 @@
-﻿using TestShop.Models.Data;
+﻿using System.Web.Mvc;
+using TestShop.Models.Data;
 
 namespace TestShop.Models.ViewModels.Pages
 {
@@ -16,6 +17,8 @@ namespace TestShop.Models.ViewModels.Pages
         }
 
         public int Id { get; set; }
+
+        [AllowHtml]
         public string Body { get; set; }
     }
 }
