@@ -249,8 +249,3 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
-
-# CodeRush
-.cr/
-/TestShop/App_Data/CmsShop.mdf
-/TestShop/App_Data/CmsShop_log.ldf
