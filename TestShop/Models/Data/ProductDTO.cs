@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TestShop.Models.Data
 {
-    [Table("Products")]
+    [Table("tblProducts")]
     public class ProductDTO
     {
         [Key]
