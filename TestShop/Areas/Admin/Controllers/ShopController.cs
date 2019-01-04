@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using PagedList;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Web;
@@ -258,6 +259,135 @@ namespace TestShop.Areas.Admin.Controllers
             #endregion
 
             return RedirectToAction("AddProduct");
+        }
+
+        // GET: Admin/Shop/Products
+        [HttpGet]
+        public ActionResult Products(int? page, int? catId)
+        {
+            // Deklaracja listy produktów
+            List<ProductVM> listOfProductVM;
+
+            // Ustawiamy numer strony
+            var pageNumber = page ?? 1;
+
+            using(Db db = new Db())
+            {
+                // inicjalizacja listy produktów
+                // filtrujemy wszystkie produkty, jeśli mają catId to dodajemy ją w celu dalszego wyszukiwania po niej
+                listOfProductVM = db.Products.ToArray()
+                                    .Where(x => catId == null || catId == 0 || x.CategoryId == catId)
+                                    .Select(x => new ProductVM(x))
+                                    .ToList();
+
+                // lista kategorii do dropDownList
+                ViewBag.Categories = new SelectList(db.Categories.ToList(), "Id", "Name");
+
+                // ustawiamy wybraną kategorię
+                ViewBag.SelectedCat = catId.ToString();
+            }
+
+            // ustawienie paginacji
+            var OnePageOfProducts = listOfProductVM.ToPagedList(pageNumber, 3);
+            ViewBag.OnePageOfProducts = OnePageOfProducts;
+
+            // zwracamy widok z listą produktów
+            return View(listOfProductVM);
+        }
+
+        // GET: Admin/Shop/EditProduct/id
+        [HttpGet]
+        public ActionResult EditProduct(int id)
+        {
+            // deklaracja productVM
+            ProductVM model;
+
+            using (Db db = new Db())
+            {
+                // pobieramy produkt do edycji
+                ProductDTO dto = db.Products.Find(id);
+
+                // sprawdzenie czy produkt istnieje
+                if (dto == null)
+                {
+                    return Content("Ten produkt nie istnieje");
+                }
+
+                // inicjalizacja modelu
+                model = new ProductVM(dto);
+
+                // lista kategorii
+                model.Categories = new SelectList(db.Categories.ToList(), "Id", "Name");
+
+                // ustawiamy zdjęcia
+                model.GalleryImages = Directory.EnumerateFiles(Server.MapPath("~/Images/Uploads/Products/" + id + "/Gallery/Thumbs"))
+                                                .Select(fn => Path.GetFileName(fn));
+            }
+
+            return View(model);
+        }
+
+        // POST: Admin/Shop/EditProduct
+        [HttpPost]
+        public ActionResult EditProduct(ProductVM model, HttpPostedFileBase file)
+        {
+            // pobieranie id produktu
+            int id = model.Id;
+
+            // pobranie kategorii dla listy rozwijanej
+            using (Db db = new Db())
+            {
+                model.Categories = new SelectList(db.Categories.ToList(), "Id", "Name");
+            }
+
+            // ustawiamy zdjęcia
+            model.GalleryImages = Directory.EnumerateFiles(Server.MapPath("~/Images/Uploads/Products/" + id + "/Gallery/Thumbs"))
+                                            .Select(fn => Path.GetFileName(fn));
+
+            // sprawdzamy model state, jeśli jest źle wypełniony to zwracamy widok z modelem
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            // sprawdzanie unikalności produktu
+            using (Db db = new Db())
+            {
+                // sprawdzanie unikalności nazwy
+                if (db.Products.Where(x => x.Id != id).Any(x => x.Name == model.Name))
+                {
+                    ModelState.AddModelError("", "Ta nazwa produktu jest zajęta");
+                    return View(model);
+                }
+            }
+
+            // Edycja produktu i zapis na bazie
+            using (Db db = new Db())
+            {
+                ProductDTO dto = db.Products.Find(id);
+                dto.Name = model.Name;
+                dto.Slug = model.Name.Replace(" ", "-").ToLower();
+                dto.Description = model.Description;
+                dto.Price = model.Price;
+                dto.CategoryId = model.CategoryId;
+                dto.ImageName = model.ImageName;
+
+                CategoryDTO catDto = db.Categories.FirstOrDefault(x => x.Id == model.CategoryId);
+                dto.CategoryName = catDto.Name;
+
+                db.SaveChanges();
+            }
+
+            // ustawienie TempData
+            TempData["SM"] = "Edycja zapisana";
+
+            #region Image upload
+
+
+
+            #endregion
+
+            return RedirectToAction("EditProduct");
         }
     }
 }
