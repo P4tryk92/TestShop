@@ -196,7 +196,7 @@ namespace TestShop.Areas.Admin.Controllers
             var originalDirectory = new DirectoryInfo(string.Format("{0}Images\\Uploads", Server.MapPath(@"\")));
 
             var pathString1 = Path.Combine(originalDirectory.ToString(), "Products");
-            var pathString2 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() );
+            var pathString2 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString());
             var pathString3 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Thumbs");
             var pathString4 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Gallery");
             var pathString5 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Gallery\\Thumbs");
@@ -271,7 +271,7 @@ namespace TestShop.Areas.Admin.Controllers
             // Ustawiamy numer strony
             var pageNumber = page ?? 1;
 
-            using(Db db = new Db())
+            using (Db db = new Db())
             {
                 // inicjalizacja listy produktów
                 // filtrujemy wszystkie produkty, jeśli mają catId to dodajemy ją w celu dalszego wyszukiwania po niej
@@ -383,11 +383,139 @@ namespace TestShop.Areas.Admin.Controllers
 
             #region Image upload
 
+            // sprawdzamy czy jest plik
+            if (file != null && file.ContentLength > 0)
+            {
+                // sprawdzenie rozszerzenia pliku
+                string ext = file.ContentType.ToLower();
+                if (ext != "image/jpg" &&
+                    ext != "image/jpeg" &&
+                    ext != "image/pjpeg" &&
+                    ext != "image/gif" &&
+                    ext != "image/png" &&
+                    ext != "image/x-png")
+                {
+                    using (Db db = new Db())
+                    {
+                        model.Categories = new SelectList(db.Categories.ToList(), "Id", "Name");
+                        ModelState.AddModelError("", "Nieprawidłowe rozszerzenie obrazu.");
+                        return View(model);
+                    }
+                }
+            }
 
+            // utworzenie potrzebnej struktury katalogów
+            var originalDirectory = new DirectoryInfo(string.Format("{0}Images\\Uploads", Server.MapPath(@"\")));
+
+            var pathString1 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString());
+            var pathString2 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Thumbs");
+
+            // usuwamy stare pliki z katalogów
+            DirectoryInfo di1 = new DirectoryInfo(pathString1);
+            DirectoryInfo di2 = new DirectoryInfo(pathString2);
+
+            foreach (var file2 in di1.GetFiles())
+                file2.Delete();
+            foreach (var file3 in di2.GetFiles())
+                file3.Delete();
+
+            // zapis nazwy obrazka na bazie
+            string imageName = file.FileName;
+
+            using (Db db = new Db())
+            {
+                ProductDTO dto = db.Products.Find(id);
+                dto.ImageName = imageName;
+                db.SaveChanges();
+            }
+
+            // zapis nowych plików
+            var path = string.Format("{0}\\{1}", pathString1, imageName);
+            var path2 = string.Format("{0}\\{1}", pathString2, imageName);
+
+            file.SaveAs(path);
+
+            WebImage img = new WebImage(file.InputStream);
+            img.Resize(200, 200);
+            img.Save(path2);
 
             #endregion
 
             return RedirectToAction("EditProduct");
+        }
+
+        // GET: Admin/Shop/DeleteProduct/id
+        [HttpGet]
+        public ActionResult DeleteProduct(int id)
+        {
+            // usunięcie produktu z bazy
+            using (Db db = new Db())
+            {
+                ProductDTO dto = db.Products.Find(id);
+                db.Products.Remove(dto);
+                db.SaveChanges();
+            }
+
+            // usunięcie folderu produktu z wszystkimi plikami
+            var primDirectory = new DirectoryInfo(string.Format("{0}Images\\Uploads", Server.MapPath(@"\")));
+            var pathString = Path.Combine(primDirectory.ToString(), "Products\\" + id.ToString());
+
+            if (Directory.Exists(pathString))
+                Directory.Delete(pathString, true);
+
+            return RedirectToAction("Products");
+        }
+
+        // POST: Admin/Shop/SaveGalleryImages/id
+        [HttpPost]
+        public ActionResult SaveGalleryImages(int id)
+        {
+            // pętla po obrazkach
+            foreach (string fileName in Request.Files)
+            {
+                // inicjalizacja
+                HttpPostedFileBase file = Request.Files[fileName];
+
+                // sprwadzenie czy jest plik i czy nie jest pusty
+                if (file != null && file.ContentLength > 0)
+                {
+                    // utworzenie potrzebnej struktury katalogów
+                    var originalDirectory = new DirectoryInfo(string.Format("{0}Images\\Uploads", Server.MapPath(@"\")));
+
+                    string pathString1 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Gallery");
+                    string pathString2 = Path.Combine(originalDirectory.ToString(), "Products\\" + id.ToString() + "\\Gallery\\Thumbs");
+
+                    var path = string.Format("{0}\\{1}", pathString1, file.FileName);
+                    var path2 = string.Format("{0}\\{1}", pathString2, file.FileName);
+
+                    // zapis obrazków i miniaturek
+                    file.SaveAs(path);
+                    WebImage img = new WebImage(file.InputStream);
+                    img.Resize(200, 200);
+                    img.Save(path2);
+
+                }
+            }
+
+            return View();
+        }
+
+        // POST: Admin/Shop/DeleteImage
+        [HttpPost]
+        public void DeleteImage(int id, string imageName)
+        {
+            string fullPath1 = Request.MapPath("~/Images/Uploads/Products/" + id.ToString() + "/Gallery/" + imageName);
+            string fullPath2 = Request.MapPath("~/Images/Uploads/Products/" + id.ToString() + "/Gallery/Thumbs" + imageName);
+
+            if (System.IO.File.Exists(fullPath1))
+            {
+                System.IO.File.Delete(fullPath1);
+            }
+
+            if (System.IO.File.Exists(fullPath2))
+            {
+                System.IO.File.Delete(fullPath2);
+            }
         }
     }
 }
